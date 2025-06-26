@@ -85,10 +85,12 @@ export class PartnersController {
     );
 
     try {
-      const sanitizedUsername = username.replace(/'/g, "\'").replace(/"/g, '\"');
-      const sanitizedPassword = password.replace(/'/g, "\'").replace(/"/g, '\"');
-      const xpath = `//partners/partner[username/text()='${sanitizedUsername}' and password/text()='${sanitizedPassword}']/*`;
-      const xmlStr = this.partnersService.getPartnersProperties(xpath);
+      // Use a parameterized approach to construct the XPath expression
+      const xpath = `//partners/partner[username/text()=$username and password/text()=$password]/*`;
+      const xmlStr = this.partnersService.getPartnersProperties(xpath, {
+        username: username,
+        password: password
+      });
 
       // Check if account's data contains any information - If not, the login failed!
       if (
@@ -130,7 +132,23 @@ export class PartnersController {
     this.logger.debug(`Searching partner names by the keyword "${keyword}"`);
 
     try {
-      const sanitizedKeyword = keyword.replace(/'/g, "\'").replace(/"/g, '\"');
+      // Escape special characters to prevent XPath injection
+      const sanitizedKeyword = keyword.replace(/["'&<>]/g, (char) => {
+        switch (char) {
+          case '"':
+            return '&quot;';
+          case "'":
+            return '&apos;';
+          case '&':
+            return '&amp;';
+          case '<':
+            return '&lt;';
+          case '>':
+            return '&gt;';
+          default:
+            return char;
+        }
+      });
       const xpath = `//partners/partner/name[contains(., '${sanitizedKeyword}')]`;
       return this.partnersService.getPartnersProperties(xpath);
     } catch (err) {
