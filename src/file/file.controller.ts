@@ -86,11 +86,16 @@ export class FileController {
     @Query('type') contentType: string,
     @Res({ passthrough: true }) res: FastifyReply
   ) {
-    const file: Stream = await this.fileService.getFile(path);
-    const type = this.getContentType(contentType);
-    res.type(type);
+    try {
+      const file: Stream = await this.fileService.getFile(path);
+      const type = this.getContentType(contentType);
+      res.type(type);
 
-    return file;
+      return file;
+    } catch (err) {
+      this.logger.error(err.message);
+      res.status(HttpStatus.INTERNAL_SERVER_ERROR).send({ error: 'File could not be read', location: 'server' });
+    }
   }
 
   @Get('/google')
