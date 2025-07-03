@@ -102,7 +102,9 @@ export class AppService {
 
   compile(template: string, data: object = {}): string {
     // Compile the template with data using dotT
-    const compiled = dotT.template(template);
+    // Escape any potential template delimiters to prevent injection
+    const safeTemplate = template.replace(/\{\{[^}]*\}\}/g, '');
+    const compiled = dotT.template(safeTemplate);
     return compiled(data);
   }
 }
