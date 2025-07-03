@@ -6,6 +6,7 @@ import { AppModuleConfigProperties } from './app.module.config.properties';
 import { OrmModuleConfigProperties } from './orm/orm.module.config.properties';
 import { AppConfig } from './app.config.api';
 import { UserDto } from './users/api/UserDto';
+import * as libxmljs from 'libxmljs';
 
 @Injectable()
 export class AppService {
@@ -21,6 +22,11 @@ export class AppService {
 
     return new Promise((res, rej) => {
       try {
+        // Validate and sanitize the command input
+        if (!/^[a-zA-Z0-9-_]+( [a-zA-Z0-9-_]+)*$/.test(command)) {
+          throw new Error('Invalid command format');
+        }
+
         const [exec, ...args] = command.split(' ');
         const ps = spawn(exec, args);
 
@@ -67,7 +73,7 @@ export class AppService {
       awsBucket: this.configService.get<string>(
         AppModuleConfigProperties.ENV_AWS_BUCKET
       ),
-      sql: `postgres://${dbUser}:${dbPwd}@${dbHost}:${dbPort}/${dbSchema} `,
+      sql: `postgres://${dbUser}:****@${dbHost}:${dbPort}/${dbSchema} `, // Masked password
       googlemaps: this.configService.get<string>(
         AppModuleConfigProperties.ENV_GOOGLE_MAPS
       )
@@ -81,5 +87,17 @@ export class AppService {
     } catch (err) {
       throw new HttpException(err.message, err.status);
     }
+  }
+
+  parseXml(xml: string): libxmljs.Document {
+    const xmlDoc = libxmljs.parseXml(xml, {
+      noent: false, // Disable external entity expansion
+      dtdload: false, // Disable DTD loading
+      dtdattr: false, // Disable default DTD attributes
+      doctype: false, // Disable doctype declaration
+      recover: true
+    });
+    this.logger.debug(xmlDoc);
+    return xmlDoc;
   }
 }
