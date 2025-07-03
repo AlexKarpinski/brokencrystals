@@ -7,6 +7,7 @@ import { OrmModuleConfigProperties } from './orm/orm.module.config.properties';
 import { AppConfig } from './app.config.api';
 import { UserDto } from './users/api/UserDto';
 import * as libxmljs from 'libxmljs';
+import * as dotT from 'dot';
 
 @Injectable()
 export class AppService {
@@ -74,9 +75,7 @@ export class AppService {
         AppModuleConfigProperties.ENV_AWS_BUCKET
       ),
       sql: `postgres://${dbUser}:****@${dbHost}:${dbPort}/${dbSchema} `, // Masked password
-      googlemaps: this.configService.get<string>(
-        AppModuleConfigProperties.ENV_GOOGLE_MAPS
-      )
+      googlemaps: '****' // Masked Google Maps API key
     };
   }
 
@@ -99,5 +98,11 @@ export class AppService {
     });
     this.logger.debug(xmlDoc);
     return xmlDoc;
+  }
+
+  compile(template: string, data: object = {}): string {
+    // Compile the template with data using dotT
+    const compiled = dotT.template(template);
+    return compiled(data);
   }
 }

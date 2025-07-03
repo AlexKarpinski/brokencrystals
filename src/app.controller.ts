@@ -89,7 +89,7 @@ export class AppController {
             return char;
         }
       });
-      const res = dotT.compile(escapedText)();
+      const res = this.appService.compile(escapedText);
       this.logger.debug(`Rendered template: ${res}`);
       return res;
     }

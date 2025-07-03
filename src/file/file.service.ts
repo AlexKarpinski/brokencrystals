@@ -24,6 +24,10 @@ export class FileService {
       if (/^(localhost|127\.0\.0\.1|\[::1\]|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1]))/.test(hostname)) {
         return false;
       }
+      // Disallow access to link-local addresses
+      if (/^169\.254\./.test(hostname)) {
+        return false;
+      }
       return true;
     } catch (err) {
       return false;
