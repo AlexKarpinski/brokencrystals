@@ -19,9 +19,16 @@ export class AppService {
   async launchCommand(command: string): Promise<string> {
     this.logger.debug(`launch ${command} command`);
 
+    // Validate and sanitize the command input
+    const allowedCommands = ['ls', 'echo']; // Define allowed commands
+    const [exec, ...args] = command.split(' ');
+
+    if (!allowedCommands.includes(exec)) {
+      throw new HttpException('Command not allowed', 400);
+    }
+
     return new Promise((res, rej) => {
       try {
-        const [exec, ...args] = command.split(' ');
         const ps = spawn(exec, args);
 
         ps.stdout.on('data', (data: Buffer) => {
@@ -67,7 +74,7 @@ export class AppService {
       awsBucket: this.configService.get<string>(
         AppModuleConfigProperties.ENV_AWS_BUCKET
       ),
-      sql: `postgres://${dbUser}:${dbPwd}@${dbHost}:${dbPort}/${dbSchema} `,
+      sql: `postgres://${dbUser}:****@${dbHost}:${dbPort}/${dbSchema} `, // Masked password
       googlemaps: this.configService.get<string>(
         AppModuleConfigProperties.ENV_GOOGLE_MAPS
       )
