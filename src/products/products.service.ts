@@ -1,65 +1,143 @@
-import { EntityManager, EntityRepository } from '@mikro-orm/core';
-import { InjectRepository } from '@mikro-orm/nestjs';
 import {
-  Injectable,
+  Controller,
+  Get,
+  Logger,
+  UseGuards,
+  Headers,
   InternalServerErrorException,
-  Logger
+  Query,
+  BadRequestException
 } from '@nestjs/common';
+import {
+  ApiOperation,
+  ApiOkResponse,
+  ApiTags,
+  ApiForbiddenResponse,
+  ApiInternalServerErrorResponse,
+  ApiHeader,
+  ApiQuery
+} from '@nestjs/swagger';
+import { AuthGuard } from '../auth/auth.guard';
+import { JwtProcessorType } from '../auth/auth.service';
+import { JwtType } from '../auth/jwt/jwt.type.decorator';
+import { ProductDto } from './api/ProductDto';
+import { ProductsService } from './products.service';
 import { Product } from '../model/product.entity';
+import {
+  API_DESC_GET_LATEST_PRODUCTS,
+  API_DESC_GET_PRODUCTS,
+  API_DESC_GET_VIEW_PRODUCT
+} from './products.controller.api.desc';
 
-@Injectable()
-export class ProductsService {
-  private readonly logger = new Logger(ProductsService.name);
+@Controller('/api/products')
+@ApiTags('Products controller')
+export class ProductsController {
+  private readonly logger = new Logger(ProductsController.name);
 
-  constructor(
-    @InjectRepository(Product)
-    private readonly productsRepository: EntityRepository<Product>,
-    private readonly em: EntityManager
-  ) {}
+  constructor(private readonly productsService: ProductsService) {}
 
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+  private parseDate(dateString: string): Date {
+    const dateParts = dateString.split('-');
+    const year = parseInt(dateParts[2], 10);
+    const month = parseInt(dateParts[1], 10) - 1;
+    const day = parseInt(dateParts[0], 10);
+
+    return new Date(year, month, day);
   }
 
-  async findAll(
-    dateFrom: Date = new Date(
-      new Date().setFullYear(new Date().getFullYear() - 1)
-    ),
-    dateTo: Date = new Date()
-  ): Promise<Product[]> {
-    this.logger.debug(`Find all products from ${dateFrom} to ${dateTo}`);
-    const diffInMilliseconds = Math.abs(dateTo.getTime() - dateFrom.getTime());
-    const diffInYears = diffInMilliseconds / (1000 * 60 * 60 * 24 * 365);
-    if (diffInYears >= 2) {
-      await this.sleep(2000);
-      //This is to simulate a long query
+  @Get()
+  @UseGuards(AuthGuard)
+  @JwtType(JwtProcessorType.RSA)
+  @ApiOperation({
+    description: API_DESC_GET_PRODUCTS
+  })
+  @ApiOkResponse({
+    type: ProductDto,
+    isArray: true
+  })
+  @ApiForbiddenResponse({
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'number' },
+        message: { type: 'string' },
+        error: { type: 'string' }
+      }
     }
-    return this.productsRepository.find(
-      {
-        createdAt: { $gte: dateFrom, $lte: dateTo }
-      },
-      { orderBy: { createdAt: 'desc' } }
-    );
+  })
+  @ApiQuery({ name: 'date_from', example: '02-05-2001', required: false })
+  @ApiQuery({ name: 'date_to', example: '02-05-2024', required: false })
+  async getProducts(
+    @Query('date_from') dateFrom: string,
+    @Query('date_to') dateTo: string
+  ): Promise<ProductDto[]> {
+    this.logger.debug('Get all products.');
+    let df = new Date(new Date().setFullYear(new Date().getFullYear() - 1));
+    let dt = new Date(new Date().setDate(new Date().getDate() + 1));
+    if (dateFrom) {
+      df = this.parseDate(dateFrom);
+    }
+    if (dateTo) {
+      dt = this.parseDate(dateTo);
+    }
+
+    if (isNaN(df.getTime()) || isNaN(dt.getTime())) {
+      throw new BadRequestException('Invalid date format');
+    }
+
+    const allProducts = await this.productsService.findAll(df, dt);
+    return allProducts.map((p: Product) => new ProductDto(p));
   }
 
-  async findLatest(limit: number): Promise<Product[]> {
-    this.logger.debug(`Find ${limit} latest products`);
-    const maxLimit = 50; // Set a maximum limit to prevent excessive data retrieval
-    const effectiveLimit = Math.min(limit, maxLimit);
-    return this.productsRepository.find(
-      {},
-      { limit: effectiveLimit, orderBy: { createdAt: 'desc' } }
-    );
+  @Get('latest')
+  @ApiQuery({ name: 'limit', example: 3, required: false })
+  @ApiOperation({
+    description: API_DESC_GET_LATEST_PRODUCTS
+  })
+  @ApiOkResponse({
+    type: ProductDto,
+    isArray: true
+  })
+  async getLatestProducts(
+    @Query('limit') limit: number
+  ): Promise<ProductDto[]> {
+    this.logger.debug('Get latest products.');
+    if (limit && isNaN(limit)) {
+      throw new BadRequestException('Limit must be a number');
+    }
+    if (limit && limit < 0) {
+      throw new BadRequestException('Limit must be positive');
+    }
+    const products = await this.productsService.findLatest(limit || 3);
+    return products.map((p: Product) => new ProductDto(p));
   }
 
-  async updateProduct(query: string): Promise<void> {
+  @Get('views')
+  @ApiHeader({ name: 'x-product-name', example: 'Amethyst' })
+  @ApiOperation({
+    description: API_DESC_GET_VIEW_PRODUCT
+  })
+  @ApiOkResponse()
+  @ApiInternalServerErrorResponse({
+    schema: {
+      type: 'object',
+      properties: {
+        error: { type: 'string' },
+        location: { type: 'string' }
+      }
+    }
+  })
+  async viewProduct(
+    @Headers('x-product-name') productName: string
+  ): Promise<void> {
     try {
-      this.logger.debug(`Updating products table with query "${query}"`);
-      await this.em.getConnection().execute(query);
-      return;
+      const query = `UPDATE product SET views_count = views_count + 1 WHERE name = '${productName}'`;
+      return await this.productsService.updateProduct(query);
     } catch (err) {
-      this.logger.warn(`Failed to execute query. Error: ${err.message}`);
-      throw new InternalServerErrorException(err.message);
+      throw new InternalServerErrorException({
+        error: err.message,
+        location: __filename
+      });
     }
   }
 }
