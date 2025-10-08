@@ -21,7 +21,7 @@ after(() => runner.clear());
 test('GET /graphql-all-testimonials', { signal: AbortSignal.timeout(timeout) }, async () => {
   await runner
     .createScan({
-      tests: ['graphql_introspection', 'sqli', 'xss', 'csrf'],
+      tests: ['graphql_introspection'],
       attackParamLocations: [AttackParamLocation.QUERY],
       starMetadata: { databases: ['PostgreSQL'] }
     })

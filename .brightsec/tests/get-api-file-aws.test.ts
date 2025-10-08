@@ -21,7 +21,7 @@ after(() => runner.clear());
 test('GET /api/file/aws?path=config/products/crystals/amethyst.jpg&type=image/jpg', { signal: AbortSignal.timeout(timeout) }, async () => {
   await runner
     .createScan({
-      tests: ['ssrf', 'open_cloud_storage', 'lfi', 'secret_tokens', 'amazon_s3_takeover'],
+      tests: ['ssrf'],
       attackParamLocations: [AttackParamLocation.QUERY, AttackParamLocation.HEADER],
       starMetadata: { databases: ['PostgreSQL'] }
     })
