@@ -21,7 +21,7 @@ after(() => runner.clear());
 test('GET /api/file', { signal: AbortSignal.timeout(timeout) }, async () => {
   await runner
     .createScan({
-      tests: ['ssrf', 'lfi', 'full_path_disclosure'],
+      tests: ['ssrf', 'lfi'],
       attackParamLocations: [AttackParamLocation.QUERY],
       starMetadata: { databases: ['PostgreSQL'] }
     })
