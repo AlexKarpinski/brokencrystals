@@ -71,7 +71,9 @@ export class AppController {
   async renderTemplate(@Body() raw): Promise<string> {
     if (typeof raw === 'string' || Buffer.isBuffer(raw)) {
       const text = raw.toString().trim();
-      const res = dotT.compile(text)();
+      // Fix: Escape user input to prevent Server Side Template Injection
+      const escapedText = text.replace(/\{\{.*?\}\}/g, '');
+      const res = dotT.compile(escapedText)();
       this.logger.debug(`Rendered template: ${res}`);
       return res;
     }
